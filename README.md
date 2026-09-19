@@ -16,7 +16,7 @@ The devnet preview runs on Railway:
 |---|---|
 | Console (sign-in, account, deposits, limits) | https://glance-web-production.up.railway.app |
 | Backend | https://glance-backend-production-2bd4.up.railway.app (`/health` shows the cluster, the vault program and the agent) |
-| Extension | The test build, `glance-extension-app-1.0.0-chrome.zip`, from the landing page's **Try the test build** section, installed by hand (below). The Chrome Web Store listing (`ndedifeplcjgadmdjglnmlomdcndidgp`) isn't public yet. |
+| Extension | The test build, `glance-extension-app-1.0.1-chrome.zip`, from the landing page's **Try the test build** section, installed by hand (below). The Chrome Web Store listing (`ndedifeplcjgadmdjglnmlomdcndidgp`) isn't public yet. |
 
 Installing the test build by hand, in Chrome, Brave or Edge:
 
