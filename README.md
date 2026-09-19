@@ -4,14 +4,35 @@
 
 Glance is a browser extension that recognises the company on any web page, tells you its live price and how it has moved since the story was published, explains the page out loud while drawing on it, and buys or sells that company's tokenized stock on Solana in one tap, with no wallet popup, from a vault only you control.
 
-> **Status: developer preview on Solana devnet.** Test money only; nothing real is bought or sold. Mainnet has open blockers, listed under [Status and roadmap](#status-and-roadmap).
+> **Status: developer preview on Solana devnet, hosted.** Test money only; nothing real is bought or sold. Mainnet has open blockers, listed under [Status and roadmap](#status-and-roadmap).
 
 This repository is the entry point. It explains the whole product and links the five code repositories that make it up.
+
+## Try it
+
+The devnet preview runs on Railway:
+
+| Piece | Where |
+|---|---|
+| Console (sign-in, account, deposits, limits) | https://glance-web-production.up.railway.app |
+| Backend | https://glance-backend-production-2bd4.up.railway.app (`/health` shows the cluster, the vault program and the agent) |
+| Extension | The test build, `glance-extension-app-1.0.0-chrome.zip`, from the landing page's **Try the test build** section, installed by hand (below). The Chrome Web Store listing (`ndedifeplcjgadmdjglnmlomdcndidgp`) isn't public yet. |
+
+Installing the test build by hand, in Chrome, Brave or Edge:
+
+1. Extract the zip, and keep the folder: the browser runs Glance from it.
+2. Open `chrome://extensions` (`brave://extensions`, `edge://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked** and choose the extracted folder, the one with `manifest.json` inside.
+4. Pin Glance. In Phantom, turn on Testnet mode (Developer Settings) and pick Solana Devnet, then open Glance and connect.
+5. Open an article about a company and press **⌥G** (Alt+G on Windows), or hold **⌥V** and ask a question.
+
+To update, replace the folder's contents with the new zip and click the reload arrow on Glance's card.
 
 ---
 
 ## Contents
 
+- [Try it](#try-it)
 - [The repositories](#the-repositories)
 - [What Glance does](#what-glance-does)
 - [How it works](#how-it-works)
@@ -54,7 +75,8 @@ glance/
 
 ### Reads the page and names the company
 - **Passive underlines.** Company names and tickers on any page are underlined from a dictionary shipped to the extension. Nothing leaves the browser for this.
-- **Glance (⌥G, or tap the orb).** Glance reads the title, publish time and visible text and resolves the company, even without a ticker ("the Ozempic company" is Novo Nordisk; an "RTX 5090" review is about Nvidia). Site adapters handle X, YouTube and articles.
+- **Glance (⌥G, or tap the orb).** Glance reads the title, publish time and the text you're looking at (on articles, the rest of the article too) and resolves the company, even without a ticker ("the Ozempic company" is Novo Nordisk; an "RTX 5090" review is about Nvidia). Site adapters handle X, YouTube and articles.
+- **Every company on the page.** The card leads with the company the page is about and lists the others it names strongly as **Also on this page**, each one tap from its own card.
 - **Screenshot fallback.** When a page has no readable text (an image, a canvas, a video frame), Glance reads a screenshot instead and resolves from that.
 
 ### Covers every tokenized stock on Solana
@@ -81,6 +103,8 @@ Hold **⌥V** and ask about what's on screen: "what does this chart show?", "is 
 - handwritten notes.
 
 If the answer is further down the page or behind a tab, Glance scrolls or clicks there itself, announcing each click so Escape can cancel it. It never clicks anything that buys, pays, signs in or submits.
+
+It can **point you to a company** ("point me to Anthropic" scrolls to where the page mentions it and circles it; "glance Anthropic" then opens its card). When the page or question is about a company, it adds **recent headlines** as context, naming the outlet and never drawing them on the page.
 
 **Skills** teach it specific jobs: reading candlestick charts and naming classic chart and candle patterns, walking through earnings tables, explaining technical indicators.
 
@@ -180,7 +204,7 @@ On devnet, trades fill from an OTC desk at the reference price plus 30 basis poi
   - Common words and news acronyms are marked ambiguous and need more evidence before they count.
 - **Scoring runs in two places on purpose:** in the extension for instant underlines, and on the backend for the full glance.
 - **A language model is asked only when the dictionary is unsure.** Its answer is cached per page for 30 minutes.
-- **It's measured:** a scorer runs the resolver against 51 captured real pages. It currently resolves all 45 company pages (41 without asking the user to confirm) and declines all 6 pages that are about no company.
+- **It's measured:** a scorer runs the resolver against 52 captured real pages. It currently resolves all 46 company pages and declines all 6 pages that are about no company.
 
 ---
 
@@ -221,6 +245,7 @@ On devnet, trades fill from an OTC desk at the reference price plus 30 basis poi
 - `src/resolver/`: the resolver.
 - `src/services/llm.ts`: every AI call, with usage and cost logging.
 - `src/lib/structured.ts`: keeps a model's answer when it runs past a length limit, instead of discarding it.
+- `src/services/keys.ts`: the agent, desk, issuer and payer keys, each from a key file's path or from the key itself, so a host without a disk can keep them in sealed variables. The server never makes an agent key of its own: without one it refuses to start.
 - `src/config/catalog.json`: the token catalog, refreshed from the issuers' APIs.
 - **`skills/`:** one Markdown file per skill; see `skills/README.md`.
   - Sections can carry their own trigger words, so large references (the pattern catalogue) are sent only when a question needs them.
@@ -234,7 +259,7 @@ On devnet, trades fill from an OTC desk at the reference price plus 30 basis poi
 | `pnpm tsx src/scripts/allow-mints.ts` | Curate every registry mint on-chain |
 | `pnpm script:delegated-swap buy AAPL 10` | A delegated buy from the command line |
 | `pnpm script:refresh-catalog` | Rebuild the token catalog from xStocks, PreStocks and Tessera |
-| `pnpm script:score-resolver [--llm]` | Resolver accuracy on 51 real pages |
+| `pnpm script:score-resolver [--llm]` | Resolver accuracy on 52 real pages |
 | `pnpm script:score-voice` | Voice-command accuracy of the model fallback |
 | `pnpm script:compare-news --models a,b --out r.md` | "Why" and counter-view side by side on frozen headlines |
 | `pnpm script:replay-explain --tokens` / `--configs … --out r.html` | Replay captured "show me" questions on other models, with the marks drawn on each screenshot |
@@ -249,6 +274,7 @@ On devnet, trades fill from an OTC desk at the reference price plus 30 basis poi
 **How it works:**
 - The backend builds each transaction; Phantom signs it.
 - `VITE_BACKEND_URL` is compiled in. One browser can point at another backend with `localStorage` `glance:backend`.
+- pnpm 11 is pinned in `package.json` (`packageManager`), and `pnpm-workspace.yaml` lists `packages`, so build hosts that default to pnpm 9 still install it.
 
 ### [glance-extension-app](https://github.com/heeylana/glance-extension-app): the extension
 
@@ -263,14 +289,16 @@ On devnet, trades fill from an OTC desk at the reference price plus 30 basis poi
 **Commands:**
 - `pnpm build`: load `dist/chrome-mv3` unpacked.
 - `pnpm dev`: hot reload.
-- `pnpm zip`: store upload.
+- `pnpm zip`: the store upload, and the test build offered on the landing page. Its manifest carries a `key`, so every hand install gets the same extension ID.
 - `pnpm preview <owner>`: screenshots of every screen.
 
 ### [glance-landing-page](https://github.com/heeylana/glance-landing-page): the landing page
 
 - Static `index.html` and `styles.css`, with `vercel.json` for headers and caching. No build step.
-- Hero and demo videos are slots with fallbacks until recorded.
-- Install buttons point at the extension's store listing.
+- Sections: hero, "show me" (a chart with Glance's drawings), features, the catalog with pre-IPO names, setup, **try the test build** (the extension zip and six install steps), guardrails, demo, FAQ.
+- The demo video is a slot with a fallback until recorded.
+- Every "Add to browser" button scrolls to the test build download until the store listing is public.
+- The zip sits in `assets/`, which `vercel.json` caches as immutable for a week, so each new build gets a new file name (it carries the version).
 - Preview with `python3 -m http.server 8080`.
 
 ---
@@ -361,6 +389,8 @@ Every repository has a `.env.example`. The settings that matter most:
 | Repository | Setting | Notes |
 |---|---|---|
 | backend | `SOLANA_CLUSTER`, `SOLANA_RPC_URL`, `VAULT_PROGRAM_ID` | Devnet today |
+| backend | `AGENT_KEYPAIR`, `DESK_KEYPAIR`, `ISSUER_KEYPAIR`, `PAYER_KEYPAIR` | A key file's path, or the file's contents (`[12,34,…]`) in a sealed variable. The backend won't start without the agent key |
+| backend | `ISSUER_REGISTRY_FILE` | Optional: where the devnet mock registry is kept, e.g. on a volume at `/data/issuers.mock.json` |
 | backend | `USDC_MINT` | Must be one of the registry's stable mints, or every buy fails (the startup log says so) |
 | backend | `SESSION_SECRET`, `WEB_CONSOLE_URL`, `ALLOWED_ORIGINS` | `ALLOWED_ORIGINS` (the extension's and console's origins) is required in production |
 | backend | `ANTHROPIC_API_KEY`, `LLM_MODEL`, `LLM_FAST_MODEL`, `LLM_READ_MODEL`, `LLM_VISION_EFFORT`, `LLM_VISION_THINKING` | See [AI models and cost](#ai-models-and-cost) |
@@ -378,12 +408,12 @@ Values in `VITE_*` and `WXT_*` end up in files anyone can read. Never put a secr
 | Repository | Command | What it covers |
 |---|---|---|
 | glance-vault | `anchor test --skip-build` | 27 tests on a local validator: the desk path, curation, caps, expiry, pause, every rejection |
-| glance-backend | `pnpm test && pnpm typecheck` | 212 tests: guards, resolver, voice grammar, skills, structured-answer repair, costs, caches, "show me" sanitising |
-| glance-extension-app | `pnpm test && pnpm compile` | 55 tests: matcher, adapters, click refusals, drawing geometry, remembered-page selection, CSS guards |
+| glance-backend | `pnpm test && pnpm typecheck` | 229 tests: guards, resolver, voice grammar, skills, structured-answer repair, costs, caches, "show me" sanitising and its lean map, key loading |
+| glance-extension-app | `pnpm test && pnpm compile` | 60 tests: matcher, adapters, click refusals, drawing geometry, remembered-page selection, CSS guards |
 | glance-web | `pnpm compile` | Type checks (no unit tests) |
 
 **AI evaluations** (they cost a little to run):
-- `score-resolver --llm`: company matching on 51 real pages.
+- `score-resolver --llm`: company matching on 52 real pages.
 - `score-voice`: 24 spoken phrasings.
 - `compare-news`: "why" and counter-view side by side.
 - `replay-explain`: "show me" on captured real questions, compared across models and settings.
@@ -392,22 +422,26 @@ Values in `VITE_*` and `WXT_*` end up in files anyone can read. Never put a secr
 
 ## Deployment
 
-Today's deployable target is a **hosted devnet preview**. Deploy in this order:
+Today's deployable target is a **hosted devnet preview**, and one is running on Railway ([Try it](#try-it)). Deploy in this order:
 
 1. **Program:** already on devnet, or your own copy.
 2. **Postgres.**
 3. **Backend:**
    - one Node 22 instance, started with `pnpm start`;
-   - a persistent disk for `.keys/` and the devnet mock registry;
+   - **keys:** on a disk as files, or, on Railway, each key file's contents in a sealed variable (`AGENT_KEYPAIR`, `DESK_KEYPAIR`, `ISSUER_KEYPAIR`, `PAYER_KEYPAIR`). Use the agent and desk made by `setup-devnet.ts`: vaults name their agent, and the program only accepts its configured desk. Move the program's upgrade authority off the payer key before the payer goes on a server;
+   - **the devnet mock registry** on a persistent volume (`ISSUER_REGISTRY_FILE=/data/issuers.mock.json`), so mock stocks made on first buys survive deploys;
+   - **SOL for the agent:** it pays the fee on every trade, and rent the first time a vault holds a stock;
    - HTTPS, with 10 MB request bodies and timeouts of 60 s or more.
-4. **Console:** static hosting, with a rewrite that serves `index.html` for every path.
-5. **Extension:** Chrome Web Store; pin the store's ID.
-6. **Landing page.**
-7. **Lock down:** set `ALLOWED_ORIGINS`, and make sure `DEV_LOGIN` and `EVAL_CAPTURE_DIR` are off.
+4. **Console:** static hosting, with a rewrite that serves `index.html` for every path (on Railway, the service serves it).
+5. **Extension:** not a server. Build it with the production `WXT_*` values, then upload `pnpm zip` to the Chrome Web Store, or offer the zip for hand installs (the landing page does).
+6. **Landing page:** static.
+7. **Lock down:** set `ALLOWED_ORIGINS` to the console's origin and each extension ID in use (`chrome-extension://<id>`: the store's, and the one the test build pins), and make sure `DEV_LOGIN` and `EVAL_CAPTURE_DIR` are off.
 
-Three things that break a deployment silently:
+Things that broke a deployment, and what guards against them now:
 
-- **A missing agent key.** If `.keys/agent.json` isn't there, the backend makes a new agent key, and every existing user has to renew in the console.
+- **A missing agent key.** The backend used to make a new agent key when it found none, which orphans every existing vault until its owner renews. It now refuses to start (`no agent key: refusing to start`) and names the variable to set.
+- **The pnpm version.** A host that guesses pnpm 9 from the lockfile stopped at `ERROR packages field missing or empty`. The console now pins pnpm 11 and lists its package.
+- **Deploying the extension as a service.** It has no server, so a host that tries to run one crashes with `Cannot find module '/app/index.js'`. Don't deploy it; build and upload it instead.
 - **The compiled build.** `tsc` doesn't copy the JSON registry files the server reads at runtime, so run it through `tsx` (`pnpm start`), with dev dependencies installed.
 - **Baked-in addresses.** The backend and console URLs are compiled into the console and the extension, so a new URL means a new build.
 
@@ -419,7 +453,7 @@ Glance uses Claude through the Anthropic API directly, with a model chosen per j
 
 | Job | Model | Setting | Measured cost per call |
 |---|---|---|---|
-| "Show me" (sees the screenshot, draws on it) | Claude Sonnet 5, effort `low` | `LLM_MODEL` / `LLM_VISION_MODEL` | ~2.0¢ with a warm prompt cache |
+| "Show me" (sees the screenshot, draws on it) | Claude Sonnet 5, effort `low` | `LLM_MODEL` / `LLM_VISION_MODEL` | ~1.3¢ with a warm prompt cache (average of 12 real questions) |
 | Company matching, "why", counter-view, voice fallback, remember | Claude Haiku 4.5 | `LLM_FAST_MODEL` | ~0.1–0.2¢ |
 | Screenshot fallback (transcription only) | Claude Haiku 4.5 | `LLM_READ_MODEL` | ~0.4¢ |
 
@@ -428,11 +462,11 @@ How cost is kept down:
 - **Every call logs an `llm usage` line** with its tokens, its dollar cost and the day's running total per job.
 - **Repeated answers come from caches in the app:** "why" for 10 minutes per ticker, company matching for 30 minutes per page.
 - **"Show me" caches its instructions and skills** with prompt caching.
-- **The element map is compacted** before it's sent. It's about two thirds of a "show me" request.
+- **The element map is trimmed** before it's sent: elements with no text, far-off-screen elements and page furniture (repeated banners, small icons, ticker tapes) are dropped, and fields are separated by spaces. The map was about two thirds of a "show me" request. The lean map cut input by about a quarter and the cost of a call by 17%, with the same answers and marks on 12 replayed real questions.
 - **Skills and skill sections are sent only when a question calls for them.**
 - **A model that runs past a length limit has its answer trimmed**, not discarded after it's been billed.
 
-Compared with running everything on Claude Opus 5, "show me" costs about 2.9× less and the short jobs 5–7× less, measured on real pages. A replay tool compares models and settings on captured real questions before any change becomes the default.
+Compared with running everything on Claude Opus 5, "show me" cost about 2.9× less on the first page measured, before the lean map took off another 17%, and the short jobs cost 5–7× less. A replay tool compares models and settings on captured real questions before any change becomes the default.
 
 ---
 
@@ -452,6 +486,8 @@ That is the whole of it. It **cannot**:
 **What it can still get wrong is the price.** There is no on-chain oracle bound yet: the minimum output comes from the agent. A dishonest backend and desk together could fill you at a bad price, bounded by your daily cap. The backend's own price band against Pyth or Jupiter normally prevents it, and an on-chain bound is required before mainnet.
 
 **A leaked agent key alone** is weaker still. The devnet desk path also needs the desk's co-signature, and the key is bounded by the same policy. One Phantom approval revokes it.
+
+**On the hosted preview** the keys are sealed variables: Railway passes them to the running service but never shows them again in its dashboard or API. Anyone with admin access to the Railway project can still replace them, so project membership is kept to the people who could hold the keys.
 
 **A backend outage** executes nothing. Your funds stay in your vault, and you can withdraw, pause or revoke from the console with Phantom at any time.
 
@@ -478,9 +514,10 @@ The full list of applied rules, deliberate risks and known limitations is in [`g
 ## Status and roadmap
 
 **Working on devnet today:**
+- a hosted preview: backend and console on Railway, and a test build of the extension to install by hand;
 - the vault program, with per-mint curation (v2);
 - delegated buys and sells with no popups, from a real browser;
-- the full resolver, with its 51-page test set;
+- the full resolver, with its 52-page test set;
 - the 932-token catalog, including pre-IPO tokens;
 - "show me" with chart drawing and skills;
 - voice, remembered pages, the journal, the watchlist and the console.
